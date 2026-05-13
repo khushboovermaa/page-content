@@ -9,48 +9,64 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 // docx generation — zero CDN dependency, pure browser JS
-async function generateDocx(htmlContent, keyword, url) {
-  // Strip HTML tags to get plain text with structure preserved
-  const tmp = document.createElement('div');
-  tmp.innerHTML = htmlContent;
-
-  // Build paragraphs array from DOM nodes
-  const paras = [];
-  function addPara(xml) { paras.push(xml); }
-
+// FIX v5.5: parse PLAIN-TEXT markdown markers (# ## ### -) directly.
+// Previous version did `tmp.innerHTML = plainText` which produced a single text node
+// → nodeToParas skipped it (nodeType 3) → empty doc. Now we line-parse.
+async function generateDocx(textContent, keyword, url) {
   function escXml(t) {
     return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function nodeToParas(node) {
-    if (node.nodeType === 3) return; // text node handled by parent
-    const tag = node.tagName ? node.tagName.toLowerCase() : '';
-    const text = escXml(node.textContent || '');
-    if (!text.trim()) return;
-
-    if (tag === 'h1') {
-      addPara(`<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="2563EB"/><w:sz w:val="36"/></w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`);
-    } else if (tag === 'h2') {
-      addPara(`<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:spacing w:before="300" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1E40AF"/><w:sz w:val="28"/></w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`);
-    } else if (tag === 'h3') {
-      addPara(`<w:p><w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1D4ED8"/><w:sz w:val="24"/></w:rPr><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`);
-    } else if (tag === 'li') {
-      addPara(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`);
-    } else if (tag === 'p' || tag === 'div') {
-      if (text.trim()) {
-        addPara(`<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`);
+  // Build inline runs with **bold** support inside paragraphs/headings
+  function buildRuns(text, extraRPr) {
+    const safe = escXml(text);
+    const parts = safe.split(/(\*\*[^*]+\*\*)/g).filter(p => p !== '');
+    if (parts.length === 0) return `<w:r>${extraRPr||''}<w:t xml:space="preserve">${safe}</w:t></w:r>`;
+    return parts.map(p => {
+      if (/^\*\*[^*]+\*\*$/.test(p)) {
+        const inner = p.replace(/^\*\*|\*\*$/g,'');
+        const rpr = extraRPr ? extraRPr.replace('<w:rPr>','<w:rPr><w:b/>') : '<w:rPr><w:b/></w:rPr>';
+        return `<w:r>${rpr}<w:t xml:space="preserve">${inner}</w:t></w:r>`;
       }
-    } else if (tag === 'ul' || tag === 'ol') {
-      node.querySelectorAll('li').forEach(li => {
-        const liText = escXml(li.textContent);
-        addPara(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t xml:space="preserve">${liText}</w:t></w:r></w:p>`);
-      });
+      return `<w:r>${extraRPr||''}<w:t xml:space="preserve">${p}</w:t></w:r>`;
+    }).join('');
+  }
+
+  const paras = [];
+  const lines = String(textContent || '').split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      paras.push('<w:p><w:pPr><w:spacing w:after="80"/></w:pPr></w:p>');
+      continue;
+    }
+
+    let m;
+    if ((m = trimmed.match(/^#\s+(.+)$/))) {
+      // H1
+      paras.push(`<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="280" w:after="160"/></w:pPr>${buildRuns(m[1], '<w:rPr><w:b/><w:color w:val="2563EB"/><w:sz w:val="40"/></w:rPr>')}</w:p>`);
+    } else if ((m = trimmed.match(/^##\s+(.+)$/))) {
+      // H2
+      paras.push(`<w:p><w:pPr><w:pStyle w:val="Heading2"/><w:spacing w:before="320" w:after="140"/></w:pPr>${buildRuns(m[1], '<w:rPr><w:b/><w:color w:val="1E40AF"/><w:sz w:val="32"/></w:rPr>')}</w:p>`);
+    } else if ((m = trimmed.match(/^###\s+(.+)$/))) {
+      // H3
+      paras.push(`<w:p><w:pPr><w:pStyle w:val="Heading3"/><w:spacing w:before="240" w:after="100"/></w:pPr>${buildRuns(m[1], '<w:rPr><w:b/><w:color w:val="1D4ED8"/><w:sz w:val="26"/></w:rPr>')}</w:p>`);
+    } else if ((m = trimmed.match(/^[-*]\s+(.+)$/))) {
+      // Bullet
+      paras.push(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:spacing w:after="80"/></w:pPr>${buildRuns(m[1])}</w:p>`);
+    } else if ((m = trimmed.match(/^(\d+)\.\s+(.+)$/))) {
+      // Numbered list
+      paras.push(`<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:after="80"/></w:pPr>${buildRuns(m[2])}</w:p>`);
     } else {
-      node.childNodes.forEach(nodeToParas);
+      // Regular paragraph
+      paras.push(`<w:p><w:pPr><w:spacing w:after="140"/></w:pPr>${buildRuns(trimmed)}</w:p>`);
     }
   }
 
-  tmp.childNodes.forEach(nodeToParas);
+  function addPara(xml) { paras.push(xml); }
 
   // Add title header paragraphs
   const titleParas = [
@@ -92,16 +108,19 @@ async function generateDocx(htmlContent, keyword, url) {
 
   const styleXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style>
   <w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr></w:style>
 </w:styles>`;
 
   const numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>
+  <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>
   <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+  <w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
 </w:numbering>`;
 
   const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -564,7 +583,7 @@ async function generateDocx(htmlContent, keyword, url) {
 
   <!-- Version Banner -->
   <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:8px 16px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
-    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.3 — 10/10 audit passed · Safe to test</span>
+    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.5 — DOCX fix · Publish uses your rewrite · Structure mirrors original</span>
     <span style="color:var(--muted);font-family:monospace;">Built: 13 May 2026 · Verified</span>
   </div>
 
@@ -932,28 +951,54 @@ async function pushToWP(site, user, pass, aiResearchContext) {
   while ((jM = jsonRe.exec(templateRaw)) !== null) {
     if (jM[1].trim().length > 3) visibleTexts.push(jM[1].trim());
   }
-  const uniqueTexts = [...new Set(visibleTexts)].slice(0, 70);
+  const uniqueTexts = [...new Set(visibleTexts)].slice(0, 120);
 
   const apiKey = document.getElementById('apiKey').value.trim();
-  const aiPrompt = `You are rewriting a Wildnet Technologies service page. The template is from the SEO services page — transform ALL text to be about the new service/keyword below. Keep Wildnet brand name and stats (19+, 350+, 10,000+, etc). Replace every SEO/search engine mention with the new service topic naturally.
+  // FIX v5.5: Feed the AI the ACTUAL rewritten finalContent as the source of truth,
+  // not just keyword + research. Previous version ignored finalContent during publish,
+  // so SEO template phrases leaked through. Now AI must pull replacements FROM the
+  // rewritten draft so the live page mirrors what was reviewed/downloaded.
+  const aiPrompt = `You are mapping a finished page rewrite onto a Wildnet Technologies Spectra template.
 
-TEMPLATE PAGE: ${newPageTitle}
-NEW SERVICE KEYWORD: ${keyword}
-NEW PAGE URL: ${pageUrl}
+The "REWRITTEN DRAFT" below is the FINAL approved content — the live page must reflect IT, not the template's original SEO copy. Your job is to map every template phrase to the matching section/sentence in the rewritten draft.
 
-RESEARCH CONTEXT — use this to write accurate, specific, benefit-driven copy:
-${aiResearchContext.substring(0, 2500)}
+═══════════════════════════════════════
+REWRITTEN DRAFT — SOURCE OF TRUTH (pull replacements FROM this)
+═══════════════════════════════════════
+${aiResearchContext}
 
-PHRASES TO TRANSFORM — give a replacement for EVERY one. Be specific, natural, benefit-driven:
+═══════════════════════════════════════
+TEMPLATE PHRASES TO REPLACE (from the cloned SEO services template)
+═══════════════════════════════════════
 ${uniqueTexts.map((t, i) => `${i}. ${t}`).join('\n')}
 
+═══════════════════════════════════════
+RULES (non-negotiable)
+═══════════════════════════════════════
+1. For EACH numbered template phrase, give a replacement that uses wording/specifics FROM the REWRITTEN DRAFT above.
+2. Match the ROLE of the phrase:
+   - If template phrase is an H1/H2 heading → reply with the matching heading from the draft
+   - If it's a section body → reply with that section's body from the draft (trim to similar length)
+   - If it's a service-card title → reply with the matching service name from the draft
+   - If it's a CTA / button → reply with a CTA appropriate to "${keyword}"
+   - If it's an FAQ question → reply with the matching FAQ Q from the draft
+3. The result MUST be about "${keyword}" — NEVER leave SEO/search-engine/keyword-rankings wording unless the rewritten draft is itself about SEO.
+4. Keep Wildnet brand markers exactly: "19+ years", "350+ clients", "10,000+ keywords on page 1", "500+ clients", "Google Premier Partner", "ISO-certified", "Noida", "Delhi NCR".
+5. Match the original phrase's approximate length (±25%) — never blow up a 6-word heading into a paragraph.
+6. If a template phrase has no clean match in the draft, write a fresh on-topic replacement about "${keyword}" in Wildnet's voice — confident, specific, benefit-driven, zero filler.
+7. Every replacement must read naturally, never templated or robotic.
+
+NEW PAGE URL: ${pageUrl}
+NEW SERVICE KEYWORD: ${keyword}
+TEMPLATE NAME: ${newPageTitle}
+
 Return ONLY valid JSON (no markdown, no backticks, start with {, end with }):
-{"replacements":{"ORIGINAL_PHRASE":"NEW_PHRASE_HERE",...for every phrase above...},"page_title":"Best ${keyword} | Wildnet Technologies","meta_description":"155 char max description about ${keyword} services by Wildnet"}`;
+{"replacements":{"ORIGINAL_PHRASE":"REPLACEMENT_PHRASE",...for every phrase above...},"page_title":"Best ${keyword} | Wildnet Technologies","meta_description":"155 char max description about ${keyword} services by Wildnet"}`;
 
   const rRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 5000, messages: [{ role: 'user', content: aiPrompt }] })
+    body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000, messages: [{ role: 'user', content: aiPrompt }] })
   });
   const rData = await rRes.json();
   if (rData.error) throw new Error('AI error: ' + rData.error.message);
@@ -973,11 +1018,61 @@ Return ONLY valid JSON (no markdown, no backticks, start with {, end with }):
   }
   showPublishBanner(null, `✓ AI generated ${Object.keys(replacements).length} text replacements`);
 
-  // STEP D: Apply replacements to cloned raw blocks (NO injected CSS)
-  let cloned = templateRaw; // clean template — no <style> injection
+  // STEP D: Apply AI replacements to cloned raw blocks
+  let cloned = templateRaw;
   Object.keys(replacements)
     .sort((a, b) => b.length - a.length)
     .forEach(orig => { cloned = safeReplace(cloned, orig, replacements[orig]); });
+
+  // STEP D2: Aggressive second pass — force-replace common SEO terms that AI misses
+  // These appear deep in Spectra JSON and often escape the 70-phrase extraction.
+  // FIX v5.5: skip this sweep when the target keyword itself contains "seo" / "search"
+  // (e.g. "SEO services in Delhi") — otherwise we'd replace correct SEO mentions.
+  const kwLower = keyword.toLowerCase();
+  const targetIsSeo = /\b(seo|search engine|organic search)\b/.test(kwLower);
+  const serviceName = keyword.replace(/\s+in\s+\w+$/i, '').replace(/^best\s+/i, '').replace(/\s+services?$/i, '').trim();
+  if (!targetIsSeo) {
+    const serviceLower = serviceName.toLowerCase();
+    const forceReplace = [
+      ["SEO Services", serviceName + " Services"],
+      ["SEO services", serviceLower + " services"],
+      ["seo services", serviceLower + " services"],
+      ["Search Engine Optimization", serviceName],
+      ["search engine optimization", serviceLower],
+      ["Organic Search", serviceName],
+      ["organic search", serviceLower],
+      ["keyword rankings", serviceLower + " results"],
+      ["search rankings", serviceLower + " results"],
+      ["SERP rankings", serviceLower + " visibility"],
+      ["SERPs", serviceLower + " results"],
+      ["SEO strategy", serviceName + " strategy"],
+      ["SEO strategies", serviceName + " strategies"],
+      ["SEO campaign", serviceName + " campaign"],
+      ["SEO campaigns", serviceName + " campaigns"],
+      ["SEO performance", serviceName + " performance"],
+      ["SEO results", serviceName + " results"],
+      ["SEO experts", serviceName + " experts"],
+      ["SEO expert", serviceName + " expert"],
+      ["SEO specialist", serviceName + " specialist"],
+      ["SEO specialists", serviceName + " specialists"],
+      ["SEO team", serviceName + " team"],
+      ["SEO agency", serviceName + " agency"],
+      ["SEO agencies", serviceName + " agencies"],
+      ["SEO partner", serviceName + " partner"],
+      ["SEO growth", serviceName + " growth"],
+      ["SEO consulting", serviceName + " consulting"],
+      ["SEO audit", serviceName + " audit"],
+      ["SEO audits", serviceName + " audits"],
+      ["on-page SEO", "on-page " + serviceLower],
+      ["off-page SEO", "off-page " + serviceLower],
+      ["technical SEO", "technical " + serviceLower],
+      ["local SEO", "local " + serviceLower],
+      ["best SEO", "best " + serviceLower],
+      ["Best SEO", "Best " + serviceName],
+      ["SEO ", serviceName + " "],
+    ];
+    forceReplace.forEach(([from, to]) => { cloned = safeReplace(cloned, from, to); });
+  }
 
   // STEP E: Publish to WordPress
   showPublishBanner(null, '⏳ Step 4/4: Publishing to WordPress...');
@@ -1277,11 +1372,19 @@ ${newSections}
 MANDATORY REWRITING RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-STRUCTURE (non-negotiable):
-✓ Keep every section from the original — same order, same structure
-✓ Add any requested new sections using the same style
-✓ Preserve meta title, meta description, all H2 section headers
-✓ Keep the same number of services, FAQs, process steps — just rewrite them
+STRUCTURE — MIRROR THE PASTED PAGE EXACTLY (non-negotiable):
+✓ Count the sections in the pasted ORIGINAL above. Your output has the EXACT same count, in the EXACT same order.
+✓ Every H2 from the original becomes an H2 in your output (rewritten for the new keyword, same role/topic).
+✓ Every H3 from the original becomes an H3 in your output.
+✓ If the original has 8 service cards, yours has 8. If it has 5 FAQs, yours has 5. If it has 6 process steps, yours has 6. Same counts everywhere.
+✓ Per-section length matches the original within ±20%. A 40-word intro in the original = a 40-word intro in yours, NOT a 200-word essay.
+✓ Bullet count per list mirrors the original.
+✓ Writing rhythm matches: if the original opens with a punchy 2-line statement, yours does too. If body paragraphs run 3 sentences, yours do too.
+✓ CTA placement mirrors the original — same number of CTAs, same positions.
+✓ Preserve any meta title / meta description lines from the original (rewritten for the new keyword).
+✓ Add requested NEW sections (if any) only AFTER mirroring the original — same style/voice as existing sections.
+
+This is critical: the output is mapped phrase-by-phrase onto a Spectra block template during publish. If your section count or per-section length drifts from the original, the live page design breaks.
 
 COPY STANDARDS (every line must pass this test):
 ✓ Would a CMO be proud to publish this? If not, rewrite it
@@ -1320,9 +1423,9 @@ OUTPUT: Full structured page content, top to bottom, no truncation. Every sectio
     setProgress(5);
     // Convert plain text to readable HTML for preview
     const previewHtml = finalContent
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2 style="margin-top:1.5rem;color:#a78bfa">$2</h2>'.replace('$2','$1'))
-      .replace(/^### (.+)$/gm, '<h3 style="margin-top:1rem">$1</h3>')
+      .replace(/^# (.+)$/gm, '<h1 style="margin-top:1.5rem;color:#fff">$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2 style="margin-top:1.5rem;color:#a78bfa">$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3 style="margin-top:1rem;color:#cbb6ff">$1</h3>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
       .replace(/\n\n/g, '<br><br>');
