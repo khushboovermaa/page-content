@@ -771,10 +771,11 @@ async function fetchPageContent() {
   btn.disabled = true;
   btn.textContent = '⏳ Fetching...';
   status.style.display = 'none';
+  wpPageId = null; // Reset so stale ID doesn't survive a URL change
 
   try {
     const urlObj = new URL(url);
-    const slug = urlObj.pathname.replace(/\/$/, '').split('/').pop();
+    const slug = urlObj.pathname.replace(/\/$/, '').split('/').filter(Boolean).pop() || '';
     const siteBase = wpSite.replace(/\/$/, '') || urlObj.origin;
     const creds = btoa(`${wpUser}:${wpPass}`);
     const authHeaders = { 'Authorization': `Basic ${creds}` };
@@ -873,14 +874,25 @@ async function pushToWP(site, user, pass, rewrittenContent) {
   // STEP 1: Find page ID
   showPublishBanner(null, '⏳ Step 1/3: Finding your page in WordPress...');
   if (!wpPageId) {
-    const slug = new URL(pageUrl).pathname.replace(/\/$/, '').split('/').pop();
+    if (!pageUrl) throw new Error('Page URL is empty. Enter the URL of the page you want to publish to.');
+    let slug;
+    try {
+      slug = new URL(pageUrl).pathname.replace(/\/$/, '').split('/').filter(Boolean).pop() || '';
+    } catch(e) {
+      throw new Error('Invalid Page URL format. Make sure it starts with https://');
+    }
+    if (!slug) throw new Error('Could not extract a page slug from the URL. Make sure the URL points to a specific page (not just the homepage).');
+    showPublishBanner(null, `⏳ Step 1/3: Searching WordPress for slug "${slug}"...`);
     for (const ep of ['pages', 'posts']) {
       try {
-        const r = await fetch(`${wpBase}/${ep}?slug=${slug}&_fields=id&per_page=5`, { headers });
+        const r = await fetch(`${wpBase}/${ep}?slug=${slug}&context=edit&_fields=id&per_page=5`, { headers });
         if (r.ok) { const d = await r.json(); if (d && d.length > 0) { wpPageId = d[0].id; break; } }
-      } catch(e) {}
+        else if (r.status === 401 || r.status === 403) throw new Error(`Authentication failed (${r.status}). Check your WordPress username and Application Password.`);
+      } catch(e) {
+        if (e.message && (e.message.includes('Authentication') || e.message.includes('failed'))) throw e;
+      }
     }
-    if (!wpPageId) throw new Error('Cannot find page. Check URL and credentials.');
+    if (!wpPageId) throw new Error(`Cannot find page with slug "${slug}". Check the Page URL matches an existing WordPress page and that your credentials have Editor role.`);
   }
   showPublishBanner(null, `✓ Found page ID: ${wpPageId}`);
 
@@ -1138,8 +1150,8 @@ async function runAgent() {
   if (!keyword) { alert('Please enter a focus keyword.'); return; }
   if (!content) { alert('Please paste your current page content.'); return; }
 
-  // Reset page ID on every new run so wrong page is never targeted
-  wpPageId = null;
+  // Keep wpPageId if the page URL matches (don't wipe the ID fetched by fetchPageContent)
+  // It is reset automatically when a different URL is fetched via fetchPageContent.
 
   const btn = document.getElementById('runBtn');
   btn.disabled = true;
