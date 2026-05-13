@@ -576,14 +576,14 @@ async function generateDocx(textContent, keyword, url) {
 
   <!-- Header -->
   <div class="header">
-    <div class="badge">Claude Opus · SERP Research · Competitor Analysis · Live WP Update</div>
+    <div class="badge">Claude Opus · SERP Research · Secondary Keywords · Human-Written · High-Converting</div>
     <h1>SEO Content<br>Rewriter Agent</h1>
-    <p class="subtitle">Powered by Claude Opus — the most intelligent model. Researches your SERP, analyzes top competitors, then rewrites your page. Now with live WordPress publishing.</p>
+    <p class="subtitle">Researches your SERP, extracts secondary keywords, analyses competitors, then rewrites your page with specific, human-quality copy that ranks and converts. WordPress publishing included.</p>
   </div>
 
   <!-- Version Banner -->
   <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:8px 16px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
-    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.9 — Direct content injection · split/join replace · Brand safe</span>
+    <span style="color:var(--green);font-weight:700;">✅ VERSION 6.0 — Secondary keywords · Human tone · No vague statements · High-converting copy</span>
     <span style="color:var(--muted);font-family:monospace;">Built: 14 May 2026 · Final</span>
   </div>
 
@@ -654,7 +654,7 @@ async function generateDocx(textContent, keyword, url) {
       <div class="card-title">Current Page Content</div>
       <span class="card-desc">Paste full page text</span>
     </div>
-    <textarea id="pageContent" placeholder="Paste your full current page content here — hero, services, FAQs, CTAs, all sections. The agent will keep the exact same format and rewrite the copy based on SERP research."></textarea>
+    <textarea id="pageContent" placeholder="Paste your full current page content here — hero, services, FAQs, CTAs, all sections. The agent keeps the exact same section structure and length, rewrites every word from scratch, and naturally weaves in secondary keywords found from SERP research. The more complete your paste, the better the output."></textarea>
   </div>
 
   <!-- Step 3: New sections -->
@@ -1165,113 +1165,149 @@ async function runAgent() {
     // ── STEP 1: SERP Research ───────────────────────────────────────────
     setProgress(1);
     const serpResult = await callClaude(apiKey,
-      `You are an expert SEO analyst with deep knowledge of Google SERP patterns for service-based businesses in India, particularly Noida/NCR. You have extensive knowledge of what top-ranking SEO company pages include.`,
-      `Analyze the SERP landscape for the keyword: "${keyword}"
+      `You are a senior SEO analyst with deep expertise in Google SERP patterns for service-based businesses in India, especially Delhi-NCR, Noida, Ghaziabad, Gurugram and other Tier-1 and Tier-2 markets. You know exactly what it takes for a local service page to rank #1 and convert at industry-beating rates.`,
+      `Analyze the full SERP landscape for the focus keyword: "${keyword}"
 
-Based on your knowledge of what typically ranks on page 1 for this type of keyword, provide:
+Provide a thorough, actionable breakdown across the following areas:
 
-1. WHAT TOP RANKING PAGES INCLUDE
-- Common page structures and sections
-- Types of content that Google rewards for this keyword
-- Average content depth (word count range)
-- Key themes and topics covered
+1. SECONDARY & LSI KEYWORDS TO TARGET
+- Generate 15–20 secondary keywords that are natural variations of the focus keyword (e.g. if focus = "PPC company in Ghaziabad", output: "PPC agency in Ghaziabad", "pay per click services in Ghaziabad", "Google Ads company in Ghaziabad", "PPC management in Ghaziabad", "best PPC services in Ghaziabad", "PPC advertising in Ghaziabad", "Google Ads agency in Ghaziabad", "PPC experts in Ghaziabad", etc.)
+- ALWAYS include the preposition "in" between the service and the city/location — this is how people in India actually search (e.g. "PPC agency in Ghaziabad" NOT "PPC agency Ghaziabad")
+- Include both exact-match and phrase-match variants
+- Include question-based variants ("which is the best PPC agency in Ghaziabad")
+- List each with a short note on where in the page to naturally use it (H2, body, FAQ, etc.)
 
-2. SEARCH INTENT ANALYSIS
-- Primary intent (commercial/informational/transactional)
-- What the searcher is trying to find or decide
-- Stage of buyer journey
+2. WHAT TOP RANKING PAGES INCLUDE
+- Common section order and structure
+- Types of content Google rewards for this intent
+- Typical content depth (word count range)
+- Recurring themes, angles, and proof elements
 
-3. FEATURED SNIPPET OPPORTUNITIES
-- Question formats that trigger snippets
-- Format types (paragraph/list/table)
+3. SEARCH INTENT ANALYSIS
+- Primary intent (commercial / informational / transactional)
+- What the searcher is trying to decide or verify
+- Buyer journey stage
+- What would make them convert vs. bounce
 
-4. SEMANTIC KEYWORDS & ENTITIES
-- Related terms Google expects to see
-- LSI keywords for this topic
-- Important entities to mention
+4. FEATURED SNIPPET OPPORTUNITIES
+- Specific question formats that trigger snippets for this keyword
+- Format type winning (paragraph / list / table)
+- How to structure the answer for extraction
 
-5. CONTENT GAPS TYPICALLY FOUND
-- What most pages miss that would differentiate
+5. TRUST SIGNALS THAT WIN
+- What proof elements (years, client counts, certifications, case studies) appear on top pages
+- What numbers/stats dominate page-1 results
 
-Be specific and detailed. Format clearly with headers.`,
-      2500
+6. CONTENT GAPS MOST PAGES MISS
+- Sections or angles that almost no competitor covers (whitespace)
+- Specific questions left unanswered by existing pages
+
+Be specific and detailed. Label each section clearly.`,
+      3000
     );
     researchData = serpResult;
 
     // ── STEP 2: Competitor Analysis ─────────────────────────────────────
     setProgress(2);
     const competitorResult = await callClaude(apiKey,
-      `You are a senior SEO strategist specializing in competitive content analysis for digital marketing agencies in India. You think deeply, spot patterns others miss, and write analysis that directly shapes content strategy.`,
-      `For the keyword "${keyword}", analyze what the top 5 competing SEO company pages typically do:
+      `You are a senior SEO strategist who specialises in competitive content teardowns for service businesses in India. You write analysis that is brutally specific — no generalities, no fluff. Every observation has a direct implication for what to write.`,
+      `For the keyword "${keyword}", analyse what the top 5 competing pages typically do and where they fail.
 
 1. HEADLINE & VALUE PROPOSITION PATTERNS
-- What angles do top competitors use in their hero sections?
-- What unique selling propositions dominate?
-- What emotional triggers do they use?
+- What angles do top competitors lead with?
+- What USPs appear most often (speed, ROI guarantees, certifications, local presence)?
+- What emotional hooks do they use (fear of missing leads, competitor threat, ROI)?
+- What is the single most overused, clichéd headline pattern to AVOID?
 
-2. TRUST SIGNALS USED
-- What proof elements (years, clients, rankings, certifications) do winners use?
-- How do they structure social proof?
-- What specific numbers or stats appear most often?
+2. TRUST SIGNALS & SOCIAL PROOF
+- What numbers/stats do winners use (years of experience, clients, rankings, ad spend managed)?
+- How is social proof structured (testimonials, case studies, client logos, certifications)?
+- What proof is missing from most pages (the gap you should fill)?
 
 3. SERVICE SECTION PATTERNS
-- How do top pages structure their service offerings?
-- What depth of explanation wins?
-- What service names or framings stand out?
+- How do top pages frame their service list?
+- What naming conventions win (e.g. "Google Ads Management" vs "Search Advertising")?
+- What depth of explanation converts?
 
 4. CTA STRATEGY
-- What CTAs convert best for this keyword type?
-- Placement and wording patterns that appear on top pages
-- Free offers vs consultation vs audit CTAs
+- What free offers win (audit, consultation, trial)?
+- What CTA wording patterns appear on high-ranking pages?
+- Where CTAs are placed (after hero, after services, sticky bar, etc.)?
 
-5. FAQ PATTERNS
-- What questions do top-ranking pages answer?
-- How detailed are the winning answers?
-- What questions are being ignored (opportunity)?
+5. FAQ ANALYSIS
+- List the 8–10 most common questions answered on top pages for this keyword
+- Which questions are asked everywhere vs. which are rarely answered (opportunity)
+- What makes a winning FAQ answer for this keyword type?
 
-6. DIFFERENTIATORS
-- What makes the #1 ranking page stand out from #5?
-- What unique angles are NOT being used (whitespace)?
+6. DIFFERENTIATORS & WHITESPACE
+- What unique angle is NO competitor using that would stand out?
+- Where is competitor content thin, generic, or AI-sounding?
+- What would make a reader choose one page over all others?
 
-7. CONTENT WEAKNESSES TO EXPLOIT
-- What are competitors doing poorly that you can do better?
-- Where is the content thin or generic?
+7. CONTENT QUALITY WEAKNESSES
+- Where do most pages use vague language instead of specifics?
+- What promises are made without proof?
+- What would a sceptical buyer find unconvincing on a typical competitor page?
 
-Be specific and detailed. This analysis directly informs the content rewrite.`,
-      2500
+Be specific. This analysis is the direct blueprint for the rewrite.`,
+      3000
     );
 
     // ── STEP 3: Gap Analysis ─────────────────────────────────────────────
     setProgress(3);
     const gapResult = await callClaude(apiKey,
-      `You are an expert SEO content strategist with deep experience auditing and improving service pages for digital marketing agencies in India. You are brutally honest about content weaknesses.`,
-      `Perform a deep content gap analysis.
+      `You are a conversion-focused SEO content auditor. You combine technical SEO knowledge with direct-response copywriting expertise. You are ruthlessly honest about weak content and precise about what to fix.`,
+      `Perform a deep content gap analysis for this page.
 
-KEYWORD: "${keyword}"
+FOCUS KEYWORD: "${keyword}"
 PAGE URL: ${url || 'Not provided'}
 
 CURRENT PAGE CONTENT:
 ${content.substring(0, 2500)}
 
 SERP RESEARCH:
-${serpResult.substring(0, 1200)}
+${serpResult.substring(0, 1500)}
 
 COMPETITOR ANALYSIS:
-${competitorResult.substring(0, 1200)}
+${competitorResult.substring(0, 1500)}
 
-Identify with precision:
+Identify the following with full specificity:
 
-1. CRITICAL MISSING SECTIONS — sections that top pages have but this page lacks entirely
-2. WEAK SECTIONS — existing sections that are thin, generic, or poorly written
-3. MISSED SEMANTIC KEYWORDS — important related terms not present in the current content
-4. TRUST & AUTHORITY GAPS — proof elements, stats, or credentials missing
-5. INTENT MISMATCH — places where the content doesn't match what the searcher actually wants
-6. CTA & CONVERSION GAPS — weak or missing conversion moments
-7. QUICK WINS — specific changes with the fastest ranking impact
-8. STRUCTURAL IMPROVEMENTS — format or layout changes that would help rankings
+1. SECONDARY KEYWORD GAPS
+- Which secondary/LSI keywords from the SERP research are completely missing from the current page?
+- Which are present but under-used (only once when they should appear 2–3 times)?
+- Specific places in the page where each missing keyword should be inserted
 
-For each gap, explain WHY it matters for rankings.`,
-      2000
+2. CRITICAL MISSING SECTIONS
+- Sections that top-ranking pages have that this page lacks entirely
+- For each, explain why it matters for both rankings and conversions
+
+3. WEAK OR VAGUE SECTIONS
+- Which existing sections use generic language, vague claims, or AI-sounding filler?
+- Quote the specific weak phrases and explain what to replace them with
+
+4. TRUST & AUTHORITY GAPS
+- What specific proof elements (stats, numbers, certifications, case results) are missing?
+- What does a sceptical buyer need to see that isn't here?
+
+5. SEARCH INTENT MISMATCH
+- Where does the content not match what someone searching "${keyword}" actually wants?
+- What are they really trying to decide, and does the page answer that?
+
+6. CONVERSION GAPS
+- Where are strong CTAs missing?
+- Which sections end without a logical next step for the reader?
+- What offer or hook is missing that would increase enquiries?
+
+7. FAQ GAPS
+- List 5 specific questions that should be in the FAQ but aren't
+- Write a one-line answer template for each
+
+8. QUICK WINS (highest impact, least effort)
+- The 5 single changes that would most improve rankings and conversions
+
+For every gap, be specific about WHERE in the page it occurs and WHAT exactly to write.`,
+      2500
     );
     gapsData = `SERP RESEARCH\n${'─'.repeat(50)}\n${serpResult}\n\nCOMPETITOR ANALYSIS\n${'─'.repeat(50)}\n${competitorResult}`;
     document.getElementById('gapsBox').textContent = gapResult;
@@ -1284,87 +1320,143 @@ For each gap, explain WHY it matters for rankings.`,
       : '';
 
     const rewriteResult = await callClaude(apiKey,
-      `You are the world's #1 SEO content strategist for digital marketing agencies in India. You write with a sharp editorial voice — specific, confident, zero fluff. Every sentence earns its place.
+      `You are an expert SEO content writer and conversion copywriter for service businesses in India. You have 15+ years writing high-converting service pages that rank on page 1 of Google. You write like a human — confident, direct, credible — never like an AI assistant generating text. You are allergic to vague statements, filler phrases, and generic agency-speak.
 
 OUTPUT FORMAT: Plain structured text only. Use these markers:
 # for H1 (one only)
 ## for H2 section headers
 ### for H3 subheadings
 - for bullet points
-No HTML tags. No Gutenberg blocks. No markdown formatting beyond the above. This output is used for review and .docx download — WordPress publishing uses a separate system.`,
-      `MISSION: Rewrite this page to rank #1 for "${keyword}" and convert visitors into clients. This is your masterpiece — write it like your reputation depends on it.
+No HTML tags. No Gutenberg blocks. No markdown beyond the above. This output is reviewed then published to WordPress via a separate system.`,
+      `MISSION: Produce a high-converting, premium-quality service page for "${keyword}" that ranks #1 on Google and converts visitors into leads. Mirror the original page structure exactly — same sections, same order, same lengths. Rewrite every word from scratch using the research below.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DEEP RESEARCH CONTEXT
+RESEARCH INTELLIGENCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-SERP INTELLIGENCE (what Google rewards for this keyword):
+SERP ANALYSIS — SECONDARY KEYWORDS & WHAT GOOGLE REWARDS:
 ${serpResult}
 
-COMPETITOR WEAKNESSES (what top 5 pages do wrong — exploit these):
+COMPETITOR WEAKNESSES — WHAT TO DO DIFFERENTLY:
 ${competitorResult}
 
-CONTENT GAPS (specific holes to fill to win rankings):
+CONTENT GAPS — SPECIFIC HOLES TO FILL:
 ${gapResult}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ORIGINAL PAGE (keep exact structure, rewrite every word)
+ORIGINAL PAGE CONTENT (mirror this structure exactly)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-KEYWORD: ${keyword}
+FOCUS KEYWORD: ${keyword}
 URL: ${url || 'Not provided'}
 
 ${content}
 ${newSections}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MANDATORY REWRITING RULES
+RULE 1 — STRUCTURE (non-negotiable)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-STRUCTURE — MIRROR THE PASTED PAGE EXACTLY (non-negotiable):
-✓ Count the sections in the pasted ORIGINAL above. Your output has the EXACT same count, in the EXACT same order.
-✓ Every H2 from the original becomes an H2 in your output (rewritten for the new keyword, same role/topic).
-✓ Every H3 from the original becomes an H3 in your output.
-✓ If the original has 8 service cards, yours has 8. If it has 5 FAQs, yours has 5. If it has 6 process steps, yours has 6. Same counts everywhere.
-✓ Per-section length matches the original within ±20%. A 40-word intro in the original = a 40-word intro in yours, NOT a 200-word essay.
-✓ Bullet count per list mirrors the original.
-✓ Writing rhythm matches: if the original opens with a punchy 2-line statement, yours does too. If body paragraphs run 3 sentences, yours do too.
-✓ CTA placement mirrors the original — same number of CTAs, same positions.
-✓ Preserve any meta title / meta description lines from the original (rewritten for the new keyword).
-✓ Add requested NEW sections (if any) only AFTER mirroring the original — same style/voice as existing sections.
+✓ Count every section in the ORIGINAL above. Output the EXACT same count, in the EXACT same order.
+✓ Every H2 in the original → H2 in yours (same topic/role, rewritten text).
+✓ Every H3 in the original → H3 in yours.
+✓ If the original has 8 service cards, yours has 8. 5 FAQs → 5 FAQs. 9 process steps → 9 steps. No exceptions.
+✓ Per-section word count matches within ±20%. A 3-sentence intro stays a 3-sentence intro.
+✓ Bullet count per list mirrors the original (e.g. 4 bullets → 4 bullets).
+✓ CTA count and placement mirror the original exactly.
+✓ Keep any Meta Title / Meta Description lines from the original, rewritten for the new keyword.
+✓ Add any NEW sections only after the mirrored original. Same voice and format.
 
-This is critical: the output is mapped phrase-by-phrase onto a Spectra block template during publish. If your section count or per-section length drifts from the original, the live page design breaks.
+This structure is critical: the output is injected into a WordPress Spectra template block-by-block. Section count drift breaks the live page layout.
 
-COPY STANDARDS (every line must pass this test):
-✓ Would a CMO be proud to publish this? If not, rewrite it
-✓ Headlines: specific benefit + emotional hook, never generic ("We Do SEO" = fail, "Rank #1 in 90 Days or We Work for Free" = win)
-✓ Body copy: confident assertions, not hedging. "We deliver" not "We try to deliver"  
-✓ Bullet points: concrete outcomes only ("Cut cost-per-lead by 40%") never vague features ("Advanced SEO techniques")
-✓ Each of the 10-12 service sections must open with a DIFFERENT angle — no copy-paste structure
-✓ Zero filler phrases: never use "In today's digital landscape", "In conclusion", "Look no further", "cutting-edge", "leverage", "synergy"
-✓ CTAs: each one unique and specific to the section context, not the same "Get Free Quote" everywhere
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 2 — SECONDARY KEYWORD INTEGRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-SEO PRECISION:
-✓ Use "${keyword}" exactly 3-4 times — in H1, one H2, naturally in body, and FAQ
-✓ Weave in 15-20 semantic/LSI terms from the SERP research — naturally, never forced
-✓ FAQ answers: 4-6 sentences each, structured so Google extracts them as featured snippets (start with a direct 1-sentence answer, then expand)
-✓ Include specific numbers, stats, timeframes throughout (not vague claims)
+From the SERP research above, use the secondary keywords identified. Distribute them naturally across the page:
+✓ Focus keyword ("${keyword}"): H1, one H2, one body paragraph, one FAQ answer — 3 to 4 times total
+✓ Secondary variants (e.g. "PPC agency in [city]", "pay per click services in [city]", "Google Ads company in [city]", "PPC management in [city]", "Google Ads agency in [city]", "PPC experts in [city]"): spread across remaining H2s, H3s, and body paragraphs — aim for 12–18 secondary keyword uses across the full page
+✓ CRITICAL: Always include "in" between the service name and the city — "PPC agency in Ghaziabad" not "PPC agency Ghaziabad". This is how Indian users search and how Google reads local intent.
+✓ Every secondary keyword must read naturally in context — never forced, never stuffed
+✓ LSI terms from the research should appear throughout body copy to build topical depth
+✓ Include at least 2 secondary keywords in FAQ questions/answers
 
-WILDNET-SPECIFIC TRUST SIGNALS (use these naturally):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 3 — HUMAN-WRITTEN COPY STANDARDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every line must pass the "would a real expert say this?" test:
+
+✓ SPECIFICITY OVER VAGUENESS — always replace vague claims with measurable ones:
+  ✗ "We help businesses grow online" → ✓ "Ghaziabad clients average 43% lower cost-per-lead in 90 days"
+  ✗ "Our team is highly experienced" → ✓ "19 years, 500+ clients, ₹50Cr+ ad spend managed"
+  ✗ "We use advanced strategies" → ✓ "We use negative keyword pruning, bid-time adjustments, and Quality Score optimisation"
+
+✓ CONFIDENT VOICE — direct assertions, not hedges:
+  ✗ "We try to deliver results" → ✓ "We deliver results — or we show you exactly why in the next report"
+  ✗ "We can help you" → ✓ "We take full ownership of your campaigns"
+
+✓ BANNED PHRASES — never use these (they are instant signals of AI-generated filler):
+  "In today's digital landscape", "Look no further", "cutting-edge", "leverage", "synergy",
+  "robust", "seamless", "holistic", "tailored solutions", "unlock your potential",
+  "take your business to the next level", "In conclusion", "To summarize",
+  "we are committed to", "we strive to", "we aim to provide"
+
+✓ REAL SPECIFICS — use concrete details throughout:
+  - Named locations (Sahibabad, Indirapuram, Vaishali, Kaushambi, Raj Nagar Extension)
+  - Actual numbers (₹35,000 retainers, 72-hour launch, 97.2% retention, 43% CPL reduction)
+  - Named platforms (Google Ads, Meta, Microsoft Ads, Performance Max, Shopping campaigns)
+  - Named industries the client serves (manufacturing, real estate, healthcare, education, D2C)
+
+✓ HEADLINES — always combine a specific outcome + the mechanism:
+  ✗ "Our PPC Services" → ✓ "How Our PPC Management Cuts Your Cost-Per-Lead by 40% in 90 Days"
+  ✗ "Why Choose Us" → ✓ "Why Ghaziabad's Fastest-Growing Brands Choose Wildnet Over Other PPC Agencies"
+
+✓ BULLETS — outcomes, not features:
+  ✗ "Advanced keyword research" → ✓ "Negative keyword pruning that eliminates 40%+ wasted spend from week one"
+  ✗ "Regular reporting" → ✓ "Weekly reports showing cost-per-lead, ROAS, Quality Scores, and search term data — no interpretation needed"
+
+✓ EACH SERVICE/PROCESS CARD must open with a DIFFERENT angle — no copy-paste intros
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 4 — SEO STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ H1 contains the exact focus keyword
+✓ First 100 words of body content contain the focus keyword naturally
+✓ FAQ answers: start with a direct 1-sentence answer, then expand to 4–6 sentences total — optimised for featured snippet extraction
+✓ Include location-specific details (city neighbourhoods, industries, market context) for local SEO signals
+✓ Stats and numbers throughout — Google and readers both trust specificity
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 5 — TRUST SIGNALS (use naturally, not as a list dump)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Weave these Wildnet credentials into body copy and FAQ answers:
 ✓ 19+ years in digital marketing
-✓ 10,000+ keywords ranked on page 1
-✓ 500+ clients served across 30+ industries
-✓ ISO-certified processes
-✓ Google Premier Partner status
-✓ Offices in Noida, Delhi NCR
+✓ 500+ clients across 30+ industries
+✓ ₹50Cr+ in ad spend managed
+✓ ISO 9001:2015 certified processes
+✓ Google Premier Partner (top 3% in India)
+✓ 97.2% client retention rate
+✓ 72-hour campaign launch
+✓ Offices in Noida, Delhi-NCR
 
-CONVERSION ENGINEERING:
-✓ Every section closes with a micro-CTA or proof point that moves the reader forward
-✓ Build urgency naturally (limited capacity, competitive keyword windows)
-✓ Address the #1 objection in every service section: "Why Wildnet over an in-house team or cheaper agency?"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 6 — CONVERSION ENGINEERING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OUTPUT: Full structured page content, top to bottom, no truncation. Every section complete.`,
-      8000
+✓ CTAs must be specific and contextual — never the same "Get Free Quote" repeated:
+  Hero: "Get Your Free PPC Audit (Worth ₹15,000)"
+  After services: "See Which Campaign Type Fits Your Business"
+  After process: "Start Your PPC Partnership Today"
+  Before FAQs: "Talk to a Specialist — Same-Day Response"
+✓ Every section should end with either a proof point or a micro-CTA
+✓ Build natural urgency: limited specialist capacity, competitive keyword windows closing
+✓ Address the sceptic: each service section should answer "why Wildnet, not a cheaper agency?"
+
+OUTPUT: Complete page, top to bottom, every section written in full. Do not truncate, summarise, or skip any section. If the original has content, your output has that section written completely.`,
+      9000
     );
     finalContent = rewriteResult;
 
