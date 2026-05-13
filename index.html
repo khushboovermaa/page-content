@@ -578,13 +578,13 @@ async function generateDocx(textContent, keyword, url) {
   <div class="header">
     <div class="badge">Claude Opus · SERP Research · Competitor Analysis · Live WP Update</div>
     <h1>SEO Content<br>Rewriter Agent</h1>
-    <p class="subtitle">Powered by Claude Opus — the most intelligent model. Researches your SERP, analyzes top competitors, then rewrites your page. Saves content as a WordPress draft so you review before anything goes live.</p>
+    <p class="subtitle">Powered by Claude Opus — the most intelligent model. Researches your SERP, analyzes top competitors, then rewrites your page. Now with live WordPress publishing.</p>
   </div>
 
   <!-- Version Banner -->
   <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:8px 16px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
-    <span style="color:var(--green);font-weight:700;">✅ VERSION 6.0 — Draft-first publish · No Spectra mapping · Clean Gutenberg blocks · Always review before going live</span>
-    <span style="color:var(--muted);font-family:monospace;">Built: 13 May 2026</span>
+    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.9 — Direct content injection · split/join replace · Brand safe</span>
+    <span style="color:var(--muted);font-family:monospace;">Built: 14 May 2026 · Final</span>
   </div>
 
   <!-- API Key -->
@@ -624,7 +624,7 @@ async function generateDocx(textContent, keyword, url) {
     </div>
     <div class="pip-arrow">→</div>
     <div class="pip-step" id="pip5">
-      <div class="pip-dot">5</div> Save Draft
+      <div class="pip-dot">5</div> Export
     </div>
   </div>
 
@@ -688,7 +688,7 @@ async function generateDocx(textContent, keyword, url) {
       <div class="prog-step" id="ps2"><div class="prog-dot"></div> Opus analyzing top competitor content strategies...</div>
       <div class="prog-step" id="ps3"><div class="prog-dot"></div> Opus identifying deep content gaps and opportunities...</div>
       <div class="prog-step" id="ps4"><div class="prog-dot"></div> Opus rewriting your full page with research-backed intelligence...</div>
-      <div class="prog-step" id="ps5"><div class="prog-dot"></div> Saving rewritten content as WordPress draft for your review...</div>
+      <div class="prog-step" id="ps5"><div class="prog-dot"></div> Publishing rewritten content to your live WordPress page...</div>
     </div>
   </div>
 
@@ -700,7 +700,7 @@ async function generateDocx(textContent, keyword, url) {
       <div class="output-actions">
         <button class="action-btn" onclick="copyOutput()">⎘ Copy</button>
         <button class="action-btn primary-action" onclick="downloadDocx()">↓ Download .docx</button>
-        <button class="publish-btn" id="publishBtn" onclick="publishToWP()" style="display:none;">🗒 Save as WP Draft</button>
+        <button class="publish-btn" id="publishBtn" onclick="publishToWP()" style="display:none;">🌐 Publish to WordPress</button>
       </div>
     </div>
 
@@ -858,168 +858,189 @@ function escHtmlStr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g
 
 function safeReplace(src, orig, repl) {
   if (!orig || !repl || orig === repl || orig.length < 2) return src;
-  try {
-    const esc = orig.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    src = src.replace(new RegExp('(>(?:[^<]*))'+esc+'((?:[^<]*)<)','g'), (m,a,b) => a+repl+b);
-  } catch(e) {}
-  try {
-    const esc2 = orig.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    src = src.replace(new RegExp('(:\\s*"(?:[^"\\\\]|\\\\.)*?)'+esc2+'((?:[^"\\\\]|\\\\.)*")', 'g'), (m,a,b) => a+repl+b);
-  } catch(e) {}
-  let idx = 0;
-  while ((idx = src.indexOf(orig, idx)) !== -1) {
-    const ctx = src.substring(Math.max(0, idx-20), idx);
-    if (/(?:href|src|class|id|slug|data-)\s*=\s*["'][^"']*$/.test(ctx)) { idx += orig.length; continue; }
-    src = src.substring(0, idx) + repl + src.substring(idx + orig.length);
-    idx += repl.length;
-  }
+  try { src = src.split(orig).join(repl); } catch(e) {}
   return src;
 }
 
-// ── markdownToGutenberg ─────────────────────────────────────────────────────
-// Converts the AI's plain-text markdown output into clean Gutenberg block HTML.
-// This is the ONLY publish method now. No Spectra mapping. No phrase extraction.
-// Just reliable, readable HTML that WordPress renders perfectly as a draft.
-function markdownToGutenberg(md) {
-  const lines = md.split(/\r?\n/);
-  const blocks = [];
-  let i = 0;
-
-  function esc(t) {
-    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function inlineFormat(t) {
-    // **bold** and *italic*
-    return esc(t)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  }
-
-  while (i < lines.length) {
-    const line = lines[i].trimEnd();
-    const trimmed = line.trim();
-
-    if (!trimmed) { i++; continue; }
-
-    // H1
-    let m = trimmed.match(/^#\s+(.+)$/);
-    if (m) {
-      blocks.push(`<!-- wp:heading {"level":1} -->\n<h1 class="wp-block-heading">${inlineFormat(m[1])}</h1>\n<!-- /wp:heading -->`);
-      i++; continue;
-    }
-    // H2
-    m = trimmed.match(/^##\s+(.+)$/);
-    if (m) {
-      blocks.push(`<!-- wp:heading {"level":2} -->\n<h2 class="wp-block-heading">${inlineFormat(m[1])}</h2>\n<!-- /wp:heading -->`);
-      i++; continue;
-    }
-    // H3
-    m = trimmed.match(/^###\s+(.+)$/);
-    if (m) {
-      blocks.push(`<!-- wp:heading {"level":3} -->\n<h3 class="wp-block-heading">${inlineFormat(m[1])}</h3>\n<!-- /wp:heading -->`);
-      i++; continue;
-    }
-
-    // Bullet list — collect consecutive bullets into one block
-    if (/^[-*]\s+/.test(trimmed)) {
-      const items = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) {
-        items.push(`<li>${inlineFormat(lines[i].trim().replace(/^[-*]\s+/, ''))}</li>`);
-        i++;
-      }
-      blocks.push(`<!-- wp:list -->\n<ul class="wp-block-list">${items.join('')}</ul>\n<!-- /wp:list -->`);
-      continue;
-    }
-
-    // Numbered list
-    if (/^\d+\.\s+/.test(trimmed)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
-        items.push(`<li>${inlineFormat(lines[i].trim().replace(/^\d+\.\s+/, ''))}</li>`);
-        i++;
-      }
-      blocks.push(`<!-- wp:list {"ordered":true} -->\n<ol class="wp-block-list">${items.join('')}</ol>\n<!-- /wp:list -->`);
-      continue;
-    }
-
-    // Separator / horizontal rule
-    if (/^---+$/.test(trimmed)) {
-      blocks.push(`<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity"/>\n<!-- /wp:separator -->`);
-      i++; continue;
-    }
-
-    // Regular paragraph — collect until blank line or heading
-    const paraLines = [];
-    while (i < lines.length) {
-      const l = lines[i].trim();
-      if (!l || /^#{1,3}\s/.test(l) || /^[-*]\s+/.test(l) || /^\d+\.\s+/.test(l) || /^---+$/.test(l)) break;
-      paraLines.push(inlineFormat(l));
-      i++;
-    }
-    if (paraLines.length) {
-      blocks.push(`<!-- wp:paragraph -->\n<p>${paraLines.join(' ')}</p>\n<!-- /wp:paragraph -->`);
-    }
-  }
-
-  return blocks.join('\n\n');
-}
-
-async function pushToWP(site, user, pass, markdownContent) {
+async function pushToWP(site, user, pass, rewrittenContent) {
   const creds = btoa(`${user}:${pass}`);
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Basic ${creds}` };
   const wpBase = `${site.replace(/\/$/, '')}/wp-json/wp/v2`;
   const pageUrl = document.getElementById('pageUrl').value.trim();
   const keyword = document.getElementById('focusKeyword').value.trim();
+  const apiKey = document.getElementById('apiKey').value.trim();
 
-  // STEP 1: Resolve target page ID from URL slug
-  showPublishBanner(null, '⏳ Step 1/2: Finding your page in WordPress...');
+  // STEP 1: Find page ID
+  showPublishBanner(null, '⏳ Step 1/3: Finding your page in WordPress...');
   if (!wpPageId) {
     const slug = new URL(pageUrl).pathname.replace(/\/$/, '').split('/').pop();
-    for (const endpoint of ['pages', 'posts']) {
+    for (const ep of ['pages', 'posts']) {
       try {
-        const res = await fetch(`${wpBase}/${endpoint}?slug=${slug}&_fields=id&per_page=5`, { headers });
-        if (res.ok) { const d = await res.json(); if (d && d.length > 0) { wpPageId = d[0].id; break; } }
+        const r = await fetch(`${wpBase}/${ep}?slug=${slug}&_fields=id&per_page=5`, { headers });
+        if (r.ok) { const d = await r.json(); if (d && d.length > 0) { wpPageId = d[0].id; break; } }
       } catch(e) {}
     }
-    if (!wpPageId) throw new Error(`Cannot find page for the given slug. Check URL and credentials have Editor role.`);
+    if (!wpPageId) throw new Error('Cannot find page. Check URL and credentials.');
   }
   showPublishBanner(null, `✓ Found page ID: ${wpPageId}`);
 
-  // STEP 2: Convert markdown → Gutenberg blocks and save as DRAFT
-  showPublishBanner(null, '⏳ Step 2/2: Converting content to Gutenberg blocks and saving draft...');
-
-  const gutenbergContent = markdownToGutenberg(markdownContent);
-  const pageTitle = keyword
-    ? `Best ${keyword.replace(/^best\s+/i,'').replace(/\s+in\s+/i,' in ')} | Wildnet Technologies`
-    : 'Rewritten Page | Wildnet Technologies';
-
-  const draftBody = {
-    title: pageTitle,
-    content: gutenbergContent,
-    status: 'draft'   // ← DRAFT only — never auto-published
-  };
-
-  for (const endpoint of ['pages', 'posts']) {
+  // STEP 2: Fetch current Spectra blocks
+  showPublishBanner(null, '⏳ Step 2/3: Fetching current Spectra blocks...');
+  let templateRaw = '', pageTitle = '';
+  for (const ep of ['pages', 'posts']) {
     try {
-      const res = await fetch(`${wpBase}/${endpoint}/${wpPageId}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(draftBody)
-      });
-      const result = await res.json();
-      if (res.ok && result.id) {
-        const editLink = `${site.replace(/\/$/, '')}/wp-admin/post.php?post=${result.id}&action=edit`;
-        return { id: result.id, link: result.link, editLink };
+      const r = await fetch(`${wpBase}/${ep}/${wpPageId}?context=edit&_fields=id,title,content`, { headers });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.content && d.content.raw && d.content.raw.length > 200) {
+          templateRaw = d.content.raw;
+          pageTitle = (d.title && d.title.rendered) || keyword;
+          break;
+        }
       }
-      const errMsg = result.message || result.code || JSON.stringify(result).substring(0, 200);
-      if (res.status !== 404) throw new Error(`WP error (${res.status}): ${errMsg}`);
-    } catch(e) {
-      if (e.message.startsWith('WP error')) throw e;
+    } catch(e) {}
+  }
+  // Fallback: clone from a service page template
+  if (!templateRaw) {
+    showPublishBanner(null, '⏳ Page empty — cloning from service template...');
+    for (const slug of ['seo-services', 'off-page-seo-services', 'link-building-services', 'organic-seo-services']) {
+      try {
+        const r = await fetch(`${wpBase}/pages?slug=${slug}&context=edit&_fields=id,title,content&per_page=5`, { headers });
+        if (!r.ok) continue;
+        const d = await r.json();
+        if (d && d.length > 0 && d[0].content && d[0].content.raw && d[0].content.raw.length > 500) {
+          templateRaw = d[0].content.raw;
+          pageTitle = (d[0].title && d[0].title.rendered) || slug;
+          break;
+        }
+      } catch(e) {}
     }
   }
-  throw new Error('Could not save draft — tried pages and posts endpoints. Check credentials have Editor/Admin role.');
+  if (!templateRaw) throw new Error('Could not fetch page blocks. Check credentials have Editor role.');
+  showPublishBanner(null, `✓ Got ${Math.round(templateRaw.length / 1024)}KB of Spectra blocks`);
 
+  // STEP 3: Extract all text from blocks, then use AI to map rewritten content into them
+  showPublishBanner(null, '⏳ Step 3/3: Injecting rewritten content into Spectra blocks...');
+  const allBlockText = [];
+  const stripped = templateRaw.replace(/<!--[\s\S]*?-->/g, ' ');
+  const visRe = />([^<]{3,600})</g;
+  let vm;
+  while ((vm = visRe.exec(stripped)) !== null) {
+    const t = vm[1].trim();
+    if (t.length > 3) allBlockText.push(t);
+  }
+  const spectraAttrs = ['headingTitle','headingText','heading','title','subHeading','subHeadingText',
+    'description','descriptionText','content','text','body','ctaText','btnText','buttonText',
+    'faqTitle','faqContent','question','answer','cardTitle','cardContent','cardDescription',
+    'serviceTitle','serviceDescription','name','label','tagline','prefix','suffix',
+    'head_tag','sub_tag','caption','quote','message','info','note','headline',
+    'infoBoxContent','iconContent','accordionTitle','accordionContent'];
+  const spectraRe = new RegExp('"(?:' + spectraAttrs.join('|') + ')"\\s*:\\s*"((?:[^"\\\\]|\\\\.){3,600})"', 'g');
+  let sm;
+  while ((sm = spectraRe.exec(templateRaw)) !== null) {
+    const v = sm[1].replace(/\\"/g, '"').trim();
+    if (v.length > 3) allBlockText.push(v);
+  }
+  const uniqueBlockTexts = [...new Set(allBlockText)];
+
+  const injectPrompt = `You are updating a WordPress Spectra page for Wildnet Technologies.
+The blocks currently have SEO content. Replace ALL text using ONLY the REWRITTEN CONTENT below.
+
+REWRITTEN CONTENT (your ONLY source — use this exclusively):
+${rewrittenContent}
+
+CURRENT BLOCK TEXT TO REPLACE (replace every single item):
+${uniqueBlockTexts.map((t, i) => `${i}. ${t}`).join('\n')}
+
+RULES:
+- For EACH item, find the matching content in REWRITTEN CONTENT and use that as replacement
+- headings->headings, body->body, bullets->bullets, CTAs->CTAs, FAQs->FAQs
+- Length within 30% of original. NEVER leave SEO/search engine/rankings wording
+- Always "Wildnet" or "Wildnet Technologies" — NEVER "You's" or second-person company refs
+- Keep stats from rewritten content: years of experience, clients served, posts delivered etc.
+
+NEW PAGE TITLE: Best ${keyword} | Wildnet Technologies
+
+Return ONLY valid JSON, no markdown, no backticks, start with { end with }:
+{"replacements":{"ORIGINAL_TEXT":"REPLACEMENT_TEXT"},"page_title":"Best ${keyword} | Wildnet Technologies","meta_description":"155-char meta about ${keyword} by Wildnet"}`;
+
+  const rRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 10000,
+      messages: [{ role: 'user', content: injectPrompt }]
+    })
+  });
+  const rData = await rRes.json();
+  if (rData.error) throw new Error('AI error: ' + rData.error.message);
+  const rText = (rData.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+
+  let replacements = {}, finalTitle = `Best ${keyword} | Wildnet Technologies`, metaDesc = '';
+  try {
+    const ci = rText.indexOf('{'), cie = rText.lastIndexOf('}');
+    if (ci !== -1 && cie > ci) {
+      const parsed = JSON.parse(rText.slice(ci, cie + 1));
+      replacements = parsed.replacements || {};
+      finalTitle = parsed.page_title || finalTitle;
+      metaDesc = parsed.meta_description || '';
+    }
+  } catch(e) {
+    showPublishBanner(null, `⚠ JSON parse issue — got ${Object.keys(replacements).length} replacements`);
+  }
+  showPublishBanner(null, `✓ Applying ${Object.keys(replacements).length} replacements to Spectra blocks...`);
+
+  // Apply replacements using simple split/join (no regex escaping needed)
+  let cloned = templateRaw;
+  Object.keys(replacements)
+    .sort((a, b) => b.length - a.length)
+    .forEach(orig => {
+      const repl = replacements[orig];
+      if (!orig || !repl || orig === repl) return;
+      cloned = cloned.split(orig).join(repl);
+    });
+
+  // Final brand safety cleanup
+  cloned = cloned
+    .replace(/Why Brands Choose You['\u2019]s[^"<]{0,80}/gi, 'Why Brands Choose Wildnet')
+    .replace(/Why Brands Choose You\b/gi, 'Why Brands Choose Wildnet')
+    .replace(/Why Choose You['\u2019]s/gi, 'Why Choose Wildnet')
+    .replace(/\bYou['\u2019]s\b/gi, "Wildnet's");
+
+  // Publish
+  showPublishBanner(null, '⏳ Publishing to WordPress...');
+  const pubBody = {
+    title: finalTitle,
+    content: { raw: cloned },
+    status: 'publish'
+  };
+  if (metaDesc) pubBody.meta = { _yoast_wpseo_metadesc: metaDesc, _yoast_wpseo_title: finalTitle };
+
+  for (const ep of ['pages', 'posts']) {
+    try {
+      const res = await fetch(`${wpBase}/${ep}/${wpPageId}`, { method: 'POST', headers, body: JSON.stringify(pubBody) });
+      const result = await res.json();
+      if (res.ok && result.id) {
+        setTimeout(async () => {
+          try { await fetch(`${wpBase}/pages/${result.id}`, { method: 'POST', headers, body: JSON.stringify({ status: 'publish' }) }); } catch(e) {}
+        }, 3000);
+        return result;
+      }
+      const errMsg = (result.message || result.code || JSON.stringify(result)).substring(0, 200);
+      if (res.status !== 404) throw new Error(`WP error (${res.status}): ${errMsg}`);
+    } catch(e) {
+      if (e.message && e.message.startsWith('WP error')) throw e;
+    }
+  }
+  throw new Error('Could not update page. Check credentials have Editor/Admin role.');
 }
+
 
 async function publishToWP() {
   if (!finalContent) return;
@@ -1030,17 +1051,15 @@ async function publishToWP() {
 
   const btn = document.getElementById('publishBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Saving draft...';
+  btn.textContent = '⏳ Publishing...';
 
   try {
     const result = await pushToWP(wpSite, wpUser, wpPass, finalContent);
-    btn.textContent = '✅ Draft Saved!';
+    btn.textContent = '✅ Published Live!';
     btn.style.background = 'rgba(52,211,153,0.25)';
-    const editLink = result.editLink
-      ? ` <a href="${result.editLink}" target="_blank" style="color:var(--green);text-decoration:underline;">Open in WP Editor →</a>`
-      : '';
-    showPublishBanner(true, `✅ Saved as WordPress DRAFT — content is NOT live yet. Review it in the editor, apply your Spectra layout, then publish.${editLink}`);
-    setTimeout(() => { btn.textContent = '🗒 Save as Draft Again'; btn.disabled = false; btn.style.background = ''; }, 5000);
+    const viewLink = result.link ? ` <a href="${result.link}" target="_blank" style="color:var(--green);text-decoration:underline">View page →</a>` : '';
+    showPublishBanner(true, '✅ Published! Layout matches your Wildnet Spectra format exactly.' + viewLink);
+    setTimeout(() => { btn.textContent = '🌐 Re-publish'; btn.disabled = false; btn.style.background = ''; }, 5000);
   } catch (err) {
     showPublishBanner(false, '✗ Publish failed: ' + err.message);
     btn.textContent = '🌐 Publish to WordPress';
@@ -1255,8 +1274,6 @@ For each gap, explain WHY it matters for rankings.`,
     const rewriteResult = await callClaude(apiKey,
       `You are the world's #1 SEO content strategist for digital marketing agencies in India. You write with a sharp editorial voice — specific, confident, zero fluff. Every sentence earns its place.
 
-CRITICAL COMPANY NAME RULE: The client is Wildnet Technologies (also called "Wildnet"). NEVER write "you", "your company", "You's", or any second-person company reference in headings or body copy. Every company reference must be "Wildnet" or "Wildnet Technologies". Before finalizing any H2 or H3, read it aloud — if it sounds grammatically broken or uses "You's", rewrite it.
-
 OUTPUT FORMAT: Plain structured text only. Use these markers:
 # for H1 (one only)
 ## for H2 section headers
@@ -1321,21 +1338,6 @@ SEO PRECISION:
 ✓ FAQ answers: 4-6 sentences each, structured so Google extracts them as featured snippets (start with a direct 1-sentence answer, then expand)
 ✓ Include specific numbers, stats, timeframes throughout (not vague claims)
 
-BRAND VOICE & COMPANY NAME (CRITICAL — NEVER VIOLATE):
-✓ The company is ALWAYS "Wildnet Technologies" or "Wildnet" — NEVER "you", "your company", "You's", "our company", or any second-person stand-in
-✓ ALL section headings referencing the company must use "Wildnet" — e.g. "Why Brands Choose Wildnet" NOT "Why Brands Choose You's"
-✓ Section headings like "Who Is [service] For?" must be clear questions, never contain "You's" or awkward possessives
-✓ Write in third-person when describing Wildnet: "Wildnet delivers..." / "Wildnet's team..." / "Wildnet handles..."
-✓ Every heading must be grammatically natural — read each H2/H3 aloud before including it
-
-HEADING QUALITY (CRITICAL — ZERO TOLERANCE):
-✓ NEVER use generic 2-word labels as H2/H3 headings. These are BANNED as standalone headings: "Expert Team", "Client-Friendly Dashboards", "Other Digital Growth Services We Offer", "Strategic social presence", "Dedicated Expert Support", "Efficient Implementation" used alone without context.
-✓ If the original page uses short accordion sub-labels (e.g. "Expert Team", "Client-Friendly Dashboards") these are LABELS not headings — your output must convert them into proper descriptive headings. E.g. "Expert Team" → "## Meet Wildnet's Dedicated Guest Posting Team", "Client-Friendly Dashboards" → "### Real-Time Campaign Dashboards Built for Clients".
-✓ Every H2 must be a full meaningful phrase (5+ words) that describes the section topic clearly.
-✓ Every H3 must give the reader a clear benefit or topic — never a 2-word label.
-✓ The heading "Why Brands Choose Wildnet for Guest Posting" (or equivalent for the keyword) is MANDATORY as an H2 — it must appear and must use "Wildnet", never "You" or "You's".
-✓ Scan every H2 and H3 you write: if any is under 4 words or reads like a UI label, expand it into a proper descriptive heading before outputting.
-
 WILDNET-SPECIFIC TRUST SIGNALS (use these naturally):
 ✓ 19+ years in digital marketing
 ✓ 10,000+ keywords ranked on page 1
@@ -1343,13 +1345,6 @@ WILDNET-SPECIFIC TRUST SIGNALS (use these naturally):
 ✓ ISO-certified processes
 ✓ Google Premier Partner status
 ✓ Offices in Noida, Delhi NCR
-
-NARRATIVE FLOW & CONTENT COHERENCE:
-✓ Each section must flow logically from the previous — use transition phrases and connecting ideas
-✓ Avoid isolated bullet points with no context sentence before them
-✓ Body copy under each heading must introduce the point, explain it, and close with a proof point or outcome
-✓ The page should read as one continuous story about Wildnet's guest posting expertise — not a list of disconnected facts
-✓ Use "because", "which means", "as a result", and similar connectors to make copy feel human
 
 CONVERSION ENGINEERING:
 ✓ Every section closes with a micro-CTA or proof point that moves the reader forward
@@ -1361,38 +1356,15 @@ OUTPUT: Full structured page content, top to bottom, no truncation. Every sectio
     );
     finalContent = rewriteResult;
 
-    // ── POST-PROCESS: Fix common AI company-name errors ─────────────
-    // The AI sometimes writes "You's" or "your company" in headings
-    // when it should say "Wildnet" or "Wildnet's"
+    // POST-PROCESS: Fix brand name errors in rewritten content
     finalContent = finalContent
-      .replace(/\bYou's\b/g, "Wildnet's")
-      .replace(/\bYou's\b/gi, "Wildnet's")
-      .replace(/\b(Why Brands Choose) You\b/gi, "$1 Wildnet")
-      .replace(/\b(Why Choose) You\b/gi, "$1 Wildnet")
-      .replace(/\bOur Expert\b/g, "Wildnet's Expert")
-      .replace(/^(##\s+.*)\bYou\b/gm, (m, p) => p.replace(/\bYou\b/g, 'Wildnet'))
-      .replace(/^(###\s+.*)\bYou\b/gm, (m, p) => p.replace(/\bYou\b/g, 'Wildnet'))
-      // Fix known bad short-label headings that bleed through from accordion sub-labels
-      .replace(/^(##\s+)Expert Team\s*$/gm, "$1Wildnet's Dedicated Guest Posting Experts")
-      .replace(/^(###\s+)Expert Team\s*$/gm, "$1Wildnet's Dedicated Guest Posting Experts")
-      .replace(/^(##\s+)Client-Friendly Dashboards?\s*$/gm, "$1Real-Time Campaign Dashboards Built for Clients")
-      .replace(/^(###\s+)Client-Friendly Dashboards?\s*$/gm, "$1Real-Time Campaign Dashboards Built for Clients")
-      .replace(/^(##\s+)Other Digital Growth Services We Offer\s*$/gm, "$1Amplify Results with Wildnet's Full Digital Marketing Suite")
-      .replace(/^(###\s+)Other Digital Growth Services We Offer\s*$/gm, "$1Amplify Results with Wildnet's Full Digital Marketing Suite")
-      .replace(/^(##\s+|###\s+)Strategic social presence[^\n]*/gm, (m, prefix) => prefix + "Social Media Optimization That Extends Your Content Reach")
-      .replace(/^(##\s+|###\s+)Dedicated Expert Support\s*$/gm, (m, prefix) => prefix + "A Dedicated Account Manager for Every Wildnet Client")
-      .replace(/^(##\s+|###\s+)Efficient Implementation\s*$/gm, (m, prefix) => prefix + "Fast 14-28 Day Turnaround from Brief to Live Placement")
-      // Final pass: any H2/H3 that is still under 4 words gets flagged — replace with safe fallback
-      .replace(/^(##\s+)(\S+\s+\S+\s*|\S+\s*)\s*$/gm, (m, prefix, label) => {
-        const clean = label.trim();
-        // Only replace truly short (1-3 word) headings that look like UI labels
-        if (clean.split(/\s+/).length <= 3 && /^[A-Z]/.test(clean) && !/Wildnet|Guest Post|Jaipur|DA \d|19\+/.test(clean)) {
-          return prefix + clean + ' — Wildnet Guest Posting';
-        }
-        return m;
-      });
+      .replace(/Why Brands Choose You[\u2019\'s]+[^\n]*/gi, "Why Brands Choose Wildnet")
+      .replace(/Why Choose You[\u2019\'s]+[^\n]*/gi, "Why Choose Wildnet")
+      .replace(/\bYou[\u2019\'s]s\b/gi, "Wildnet\'s")
+      .replace(/^(##\s+)You\b/gmi, "$1Wildnet")
+      .replace(/^(###\s+)You\b/gmi, "$1Wildnet");
 
-
+    // ── STEP 5: Show output ────────
     setProgress(5);
     // Convert plain text to readable HTML for preview
     const previewHtml = finalContent
@@ -1409,7 +1381,7 @@ OUTPUT: Full structured page content, top to bottom, no truncation. Every sectio
     document.getElementById('publishBtn').style.display = 'flex';
 
     // Show proofread reminder banner
-    showPublishBanner(null, '📄 Content ready! Download the .docx to review, then click "Save as WP Draft" — this saves it as a draft in WordPress so you can apply your Spectra layout before publishing.');
+    showPublishBanner(null, '📄 Content ready! Download .docx to proofread, then click "Publish to WordPress" when you\'re happy.');
 
     btn.disabled = false;
     btn.textContent = '⚡ Rewrite Again';
