@@ -583,8 +583,8 @@ async function generateDocx(textContent, keyword, url) {
 
   <!-- Version Banner -->
   <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:8px 16px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
-    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.6 — Uses YOUR page layout · Deep Spectra extraction · 2-pass AI cleanup</span>
-    <span style="color:var(--muted);font-family:monospace;">Built: 13 May 2026 · Verified</span>
+    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.7 — Brand name fix · Connected copy · Wildnet heading enforcement</span>
+    <span style="color:var(--muted);font-family:monospace;">Built: 13 May 2026 · Patched</span>
   </div>
 
   <!-- API Key -->
@@ -1013,7 +1013,7 @@ RULES (non-negotiable)
    - If it's a CTA / button → reply with a CTA appropriate to "${keyword}"
    - If it's an FAQ question → reply with the matching FAQ Q from the draft
 3. The result MUST be about "${keyword}" — NEVER leave SEO/search-engine/keyword-rankings wording unless the rewritten draft is itself about SEO.
-4. Keep Wildnet brand markers exactly: "19+ years", "350+ clients", "10,000+ keywords on page 1", "500+ clients", "Google Premier Partner", "ISO-certified", "Noida", "Delhi NCR".
+4. Keep Wildnet brand markers exactly: "19+ years", "350+ clients", "10,000+ keywords on page 1", "500+ clients", "Google Premier Partner", "ISO-certified", "Noida", "Delhi NCR". CRITICAL: NEVER output "You's", "your company", or second-person company references — always use "Wildnet" or "Wildnet Technologies".
 5. Match the original phrase's approximate length (±25%) — never blow up a 6-word heading into a paragraph.
 6. If a template phrase has no clean match in the draft, write a fresh on-topic replacement about "${keyword}" in Wildnet's voice — confident, specific, benefit-driven, zero filler.
 7. Every replacement must read naturally, never templated or robotic.
@@ -1050,6 +1050,14 @@ Return ONLY valid JSON (no markdown, no backticks, start with {, end with }):
 
   // STEP D: Apply AI replacements to cloned raw blocks
   let cloned = templateRaw;
+
+  // Pre-clean replacements for brand name errors
+  Object.keys(replacements).forEach(orig => {
+    replacements[orig] = replacements[orig]
+      .replace(/\bYou's\b/gi, "Wildnet's")
+      .replace(/\b(Why Brands Choose) You\b/gi, "$1 Wildnet")
+      .replace(/\b(Why Choose) You\b/gi, "$1 Wildnet");
+  });
   Object.keys(replacements)
     .sort((a, b) => b.length - a.length)
     .forEach(orig => { cloned = safeReplace(cloned, orig, replacements[orig]); });
@@ -1437,6 +1445,8 @@ For each gap, explain WHY it matters for rankings.`,
     const rewriteResult = await callClaude(apiKey,
       `You are the world's #1 SEO content strategist for digital marketing agencies in India. You write with a sharp editorial voice — specific, confident, zero fluff. Every sentence earns its place.
 
+CRITICAL COMPANY NAME RULE: The client is Wildnet Technologies (also called "Wildnet"). NEVER write "you", "your company", "You's", or any second-person company reference in headings or body copy. Every company reference must be "Wildnet" or "Wildnet Technologies". Before finalizing any H2 or H3, read it aloud — if it sounds grammatically broken or uses "You's", rewrite it.
+
 OUTPUT FORMAT: Plain structured text only. Use these markers:
 # for H1 (one only)
 ## for H2 section headers
@@ -1501,6 +1511,13 @@ SEO PRECISION:
 ✓ FAQ answers: 4-6 sentences each, structured so Google extracts them as featured snippets (start with a direct 1-sentence answer, then expand)
 ✓ Include specific numbers, stats, timeframes throughout (not vague claims)
 
+BRAND VOICE & COMPANY NAME (CRITICAL — NEVER VIOLATE):
+✓ The company is ALWAYS "Wildnet Technologies" or "Wildnet" — NEVER "you", "your company", "You's", "our company", or any second-person stand-in
+✓ ALL section headings referencing the company must use "Wildnet" — e.g. "Why Brands Choose Wildnet" NOT "Why Brands Choose You's"
+✓ Section headings like "Who Is [service] For?" must be clear questions, never contain "You's" or awkward possessives
+✓ Write in third-person when describing Wildnet: "Wildnet delivers..." / "Wildnet's team..." / "Wildnet handles..."
+✓ Every heading must be grammatically natural — read each H2/H3 aloud before including it
+
 WILDNET-SPECIFIC TRUST SIGNALS (use these naturally):
 ✓ 19+ years in digital marketing
 ✓ 10,000+ keywords ranked on page 1
@@ -1508,6 +1525,13 @@ WILDNET-SPECIFIC TRUST SIGNALS (use these naturally):
 ✓ ISO-certified processes
 ✓ Google Premier Partner status
 ✓ Offices in Noida, Delhi NCR
+
+NARRATIVE FLOW & CONTENT COHERENCE:
+✓ Each section must flow logically from the previous — use transition phrases and connecting ideas
+✓ Avoid isolated bullet points with no context sentence before them
+✓ Body copy under each heading must introduce the point, explain it, and close with a proof point or outcome
+✓ The page should read as one continuous story about Wildnet's guest posting expertise — not a list of disconnected facts
+✓ Use "because", "which means", "as a result", and similar connectors to make copy feel human
 
 CONVERSION ENGINEERING:
 ✓ Every section closes with a micro-CTA or proof point that moves the reader forward
@@ -1519,7 +1543,19 @@ OUTPUT: Full structured page content, top to bottom, no truncation. Every sectio
     );
     finalContent = rewriteResult;
 
-    // ── STEP 5: Show output ────────
+    // ── POST-PROCESS: Fix common AI company-name errors ─────────────
+    // The AI sometimes writes "You's" or "your company" in headings
+    // when it should say "Wildnet" or "Wildnet's"
+    finalContent = finalContent
+      .replace(/\bYou's\b/g, "Wildnet's")
+      .replace(/\bYou's\b/gi, "Wildnet's")
+      .replace(/\b(Why Brands Choose) You\b/gi, "$1 Wildnet")
+      .replace(/\b(Why Choose) You\b/gi, "$1 Wildnet")
+      .replace(/\bOur Expert\b/g, "Wildnet's Expert")
+      .replace(/^(##\s+.*)\bYou\b/gm, (m, p) => p.replace(/\bYou\b/g, 'Wildnet'))
+      .replace(/^(###\s+.*)\bYou\b/gm, (m, p) => p.replace(/\bYou\b/g, 'Wildnet'));
+
+
     setProgress(5);
     // Convert plain text to readable HTML for preview
     const previewHtml = finalContent
