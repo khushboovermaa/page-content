@@ -583,7 +583,7 @@ async function generateDocx(textContent, keyword, url) {
 
   <!-- Version Banner -->
   <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;padding:8px 16px;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;">
-    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.5 — DOCX fix · Publish uses your rewrite · Structure mirrors original</span>
+    <span style="color:var(--green);font-weight:700;">✅ VERSION 5.6 — Uses YOUR page layout · Deep Spectra extraction · 2-pass AI cleanup</span>
     <span style="color:var(--muted);font-family:monospace;">Built: 13 May 2026 · Verified</span>
   </div>
 
@@ -897,37 +897,46 @@ async function pushToWP(site, user, pass, aiResearchContext) {
   }
   showPublishBanner(null, `✓ Found page ID: ${wpPageId}`);
 
-  // STEP B: Fetch raw Gutenberg/Spectra blocks from a CLEAN template page
-  // We try known good service page slugs — last part of path only for WP REST API
-  showPublishBanner(null, '⏳ Step 2/4: Cloning Spectra template from your SEO services page...');
+  // STEP B: Fetch raw Gutenberg/Spectra blocks for the template.
+  // FIX v5.6: Use the TARGET page as the primary template — its structure already
+  // matches the user's existing service-page design. Previous version cloned from
+  // /seo-services first, which forced an SEO layout (12 SEO service cards, SEO FAQ)
+  // onto unrelated pages like guest-posting. Now SEO templates are fallback only.
+  showPublishBanner(null, '⏳ Step 2/4: Loading your existing page layout as the template...');
   let templateRaw = '', newPageTitle = '', templateId = null;
-  const templateSlugs = ['seo-services', 'organic-seo-services', 'off-page-seo-services', 'on-page-seo-services', 'technical-seo-agency', 'link-building-services'];
-  for (const slug of templateSlugs) {
+
+  // First try: target page itself (preserves existing structure exactly)
+  for (const endpoint of ['pages', 'posts']) {
     try {
-      const res = await fetch(`${wpBase}/pages?slug=${slug}&context=edit&_fields=id,title,content&per_page=5`, { headers });
-      if (!res.ok) continue;
-      const d = await res.json();
-      if (d && d.length > 0 && d[0].content?.raw?.length > 500) {
-        templateRaw = d[0].content.raw;
-        newPageTitle = d[0].title?.rendered || slug;
-        templateId = d[0].id;
-        showPublishBanner(null, `✓ Template found: "${newPageTitle}" (${Math.round(templateRaw.length/1024)}KB)`);
-        break;
+      const res = await fetch(`${wpBase}/${endpoint}/${wpPageId}?context=edit&_fields=id,title,content`, { headers });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.content?.raw && d.content.raw.length > 500) {
+          templateRaw = d.content.raw;
+          newPageTitle = d.title?.rendered || '';
+          templateId = d.id;
+          showPublishBanner(null, `✓ Using existing page layout: "${newPageTitle}" (${Math.round(templateRaw.length/1024)}KB)`);
+          break;
+        }
       }
     } catch(e) {}
   }
 
-  // Fallback: use the target page itself as template (better than nothing)
+  // Fallback: clone from a known service-page template
   if (!templateRaw) {
-    showPublishBanner(null, '⚠ No clean template found — using target page as base...');
-    for (const endpoint of ['pages', 'posts']) {
+    showPublishBanner(null, '⚠ Target page has no usable blocks — falling back to service template...');
+    const templateSlugs = ['guest-posting-services', 'seo-services', 'organic-seo-services', 'off-page-seo-services', 'on-page-seo-services', 'technical-seo-agency', 'link-building-services'];
+    for (const slug of templateSlugs) {
       try {
-        const res = await fetch(`${wpBase}/${endpoint}/${wpPageId}?context=edit&_fields=id,title,content`, { headers });
-        if (res.ok) {
-          const d = await res.json();
-          templateRaw = d.content?.raw || '';
-          newPageTitle = d.title?.rendered || '';
-          if (templateRaw.length > 200) break;
+        const res = await fetch(`${wpBase}/pages?slug=${slug}&context=edit&_fields=id,title,content&per_page=5`, { headers });
+        if (!res.ok) continue;
+        const d = await res.json();
+        if (d && d.length > 0 && d[0].content?.raw?.length > 500) {
+          templateRaw = d[0].content.raw;
+          newPageTitle = d[0].title?.rendered || slug;
+          templateId = d[0].id;
+          showPublishBanner(null, `✓ Fallback template: "${newPageTitle}"`);
+          break;
         }
       } catch(e) {}
     }
@@ -935,23 +944,44 @@ async function pushToWP(site, user, pass, aiResearchContext) {
   if (!templateRaw) throw new Error('Could not fetch any template. Check WP credentials have Editor/Admin role.');
 
   // STEP C: Extract visible text phrases + Spectra JSON values from template
-  // NO CSS injection — Spectra regenerates its own CSS per page on save
+  // FIX v5.6: Expanded extraction. Previous version missed most Spectra (UAG) blocks
+  // because the JSON regex only knew 10 attribute names; Spectra uses 40+. Also
+  // bumped the per-match length from 200 to 800 chars to catch full descriptions.
   showPublishBanner(null, '⏳ Step 3/4: AI rewriting content for your keyword...');
   const vtSrc = templateRaw.replace(/<!--[\s\S]*?-->/g, ' ');
   const visibleTexts = [];
-  const vtRe = />([^<]{5,200})</g;
+  const vtRe = />([^<]{5,500})</g;
   let vtM;
   while ((vtM = vtRe.exec(vtSrc)) !== null) {
     const vt = vtM[1].trim();
     if (vt.length >= 5 && !/^[\s\d\W]+$/.test(vt)) visibleTexts.push(vt);
   }
-  // Also grab text from Spectra block JSON attributes
-  const jsonRe = /"(?:headingTitle|description|subHeadingText|head_tag|sub_tag|ctaText|btnText|title|label|text|content)"\s*:\s*"([^"\\]{3,200})"/g;
+
+  // Comprehensive Spectra/UAG block attribute names — covers info-boxes, icon-lists,
+  // service-card grids, FAQ accordions, testimonials, CTA blocks, hero sections, etc.
+  const spectraAttrs = [
+    'headingTitle','headingText','heading_text','heading','topHeading','mainHeading',
+    'bottomHeading','title','title2','title3','subHeading','subHeadingText',
+    'sub_heading','tagline','prefix','suffix','label',
+    'description','descriptionText','desc','descText','content','body','text',
+    'infoBoxContent','infoBoxDesc','iconContent','iconText','iconLabel',
+    'cardContent','cardDescription','cardHeading','cardTitle',
+    'serviceTitle','serviceContent','serviceDescription',
+    'faqTitle','faqContent','faqQuestion','faqAnswer','question','answer',
+    'ctaText','ctaLabel','ctaTitle','btnText','buttonText','linkText','linkLabel',
+    'testimonialText','testimonialAuthor','authorName','authorRole','companyName',
+    'accordionTitle','accordionContent','tabTitle','tabContent',
+    'name','itemText','itemTitle','itemDesc','altText','caption','quote',
+    'head_tag','sub_tag','message','note','info','headline'
+  ];
+  const attrAlternation = spectraAttrs.join('|');
+  const jsonRe = new RegExp('"(?:' + attrAlternation + ')"\\s*:\\s*"((?:[^"\\\\]|\\\\.){3,800})"', 'g');
   let jM;
   while ((jM = jsonRe.exec(templateRaw)) !== null) {
-    if (jM[1].trim().length > 3) visibleTexts.push(jM[1].trim());
+    const val = jM[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').trim();
+    if (val.length > 3 && !/^[\s\d\W]+$/.test(val)) visibleTexts.push(val);
   }
-  const uniqueTexts = [...new Set(visibleTexts)].slice(0, 120);
+  const uniqueTexts = [...new Set(visibleTexts)].slice(0, 250);
 
   const apiKey = document.getElementById('apiKey').value.trim();
   // FIX v5.5: Feed the AI the ACTUAL rewritten finalContent as the source of truth,
@@ -1072,6 +1102,76 @@ Return ONLY valid JSON (no markdown, no backticks, start with {, end with }):
       ["SEO ", serviceName + " "],
     ];
     forceReplace.forEach(([from, to]) => { cloned = safeReplace(cloned, from, to); });
+  }
+
+  // STEP D3: SECOND AI CLEANUP PASS (FIX v5.6)
+  // After mapping and force-replace, scan whatever is left for any remaining
+  // sentences/headings that still talk about SEO/search/rankings/etc., and
+  // replace them with on-topic copy pulled from the rewritten draft.
+  // This is the "close the gap" step that handles whatever the first pass missed.
+  if (!targetIsSeo) {
+    showPublishBanner(null, '⏳ Step 4/4: Cleanup pass — sweeping any remaining off-topic phrases...');
+    // Pull text-bearing fragments from the (already-partially-rewritten) cloned content
+    const leftoverCandidates = new Set();
+    // Re-scan visible text and JSON attributes for residual SEO phrases
+    const seoSignal = /\b(SEO|search engine|organic search|search rank|keyword rank|SERPs?|backlinks?|on-page|off-page|technical SEO|local SEO|link building)\b/i;
+    const cleanupVisible = cloned.replace(/<!--[\s\S]*?-->/g, ' ');
+    let cM;
+    const cRe = />([^<]{12,500})</g;
+    while ((cM = cRe.exec(cleanupVisible)) !== null) {
+      const t = cM[1].trim();
+      if (t.length > 10 && seoSignal.test(t)) leftoverCandidates.add(t);
+    }
+    const cJsonRe = new RegExp('"(?:' + attrAlternation + ')"\\s*:\\s*"((?:[^"\\\\]|\\\\.){10,800})"', 'g');
+    let cJ;
+    while ((cJ = cJsonRe.exec(cloned)) !== null) {
+      const v = cJ[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').trim();
+      if (v.length > 10 && seoSignal.test(v)) leftoverCandidates.add(v);
+    }
+    const leftovers = [...leftoverCandidates].slice(0, 120);
+
+    if (leftovers.length > 0) {
+      showPublishBanner(null, `⏳ Cleanup pass: ${leftovers.length} residual SEO phrases to rewrite...`);
+      const cleanupPrompt = `Some phrases on this Wildnet page still talk about SEO, but the page is now about "${keyword}".
+
+REWRITTEN DRAFT (source of truth):
+${aiResearchContext}
+
+RESIDUAL PHRASES (currently on the page — each is off-topic and must be rewritten):
+${leftovers.map((t, i) => i + '. ' + t).join('\n')}
+
+For each numbered phrase, write a replacement that:
+- Is about "${keyword}", NEVER about SEO/search/rankings
+- Uses specifics from the REWRITTEN DRAFT above
+- Matches the original phrase's length (±25%) and role (heading vs body vs CTA)
+- Keeps Wildnet brand markers (19+ years, 50,000+ guest posts, 12,000+ domains, ISO-certified, etc.)
+- Reads naturally — no template wording
+
+Return ONLY valid JSON, no markdown, start with { end with }:
+{"replacements":{"ORIGINAL":"REPLACEMENT",...}}`;
+
+      try {
+        const cRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000, messages: [{ role: 'user', content: cleanupPrompt }] })
+        });
+        const cData = await cRes.json();
+        if (!cData.error) {
+          const cTxt = (cData.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+          const ci2 = cTxt.indexOf('{'), cie2 = cTxt.lastIndexOf('}');
+          if (ci2 !== -1 && cie2 > ci2) {
+            const cleanupReplacements = (JSON.parse(cTxt.slice(ci2, cie2 + 1)).replacements) || {};
+            Object.keys(cleanupReplacements)
+              .sort((a, b) => b.length - a.length)
+              .forEach(orig => { cloned = safeReplace(cloned, orig, cleanupReplacements[orig]); });
+            showPublishBanner(null, `✓ Cleanup pass replaced ${Object.keys(cleanupReplacements).length} residual SEO phrases`);
+          }
+        }
+      } catch(e) {
+        // Cleanup is best-effort — don't fail the whole publish on cleanup error
+      }
+    }
   }
 
   // STEP E: Publish to WordPress
